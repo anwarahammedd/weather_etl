@@ -1,0 +1,4 @@
+weather.log
+*.log
+__pycache__/
+env/
