@@ -54,7 +54,23 @@ def fetch_weather(city):
 
 def store_raw_data(city, data):
     fetch_time = datetime.now()
+    fetch_date = fetch_time.date()
+
     with engine.connect() as conn:
+        result = conn.execute(text("""
+            SELECT 1
+            FROM raw_weather
+            WHERE city = :city
+            AND DATE(fetch_time) = :fetch_date
+        """),{
+            "city": city,
+            "fetch_date": fetch_date,
+        }).fetchone()
+        if result:
+            print(f"ETL already completed for {city} on {fetch_date}")
+            logging.error(f"ETL already completed for {city} on {fetch_date}")
+            return
+
         conn.execute(text("""
         INSERT INTO raw_weather (city, fetch_time, raw_data)
         values (:city, :fetch_time, :raw_data)"""),
@@ -69,6 +85,21 @@ def store_raw_data(city, data):
 def transform_and_store():
     # Fetch all raw data for today.
     today = datetime.now().date()
+    check_query = text("""
+        SELECT 1
+        FROM transformed_weather
+        WHERE date = :today
+        LIMIT 1
+    """)
+    with  engine.connect() as conn:
+        exists = conn.execute(check_query, {"today": today}).fetchone()
+
+        if exists:
+            print(f"Transformation already completed for {today}")
+            logging.error(f"Transformation already completed for {today}")
+            return
+
+
     query = text("""
     SELECT
         city,
